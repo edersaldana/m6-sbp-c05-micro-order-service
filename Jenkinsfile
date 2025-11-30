@@ -29,22 +29,6 @@ pipeline {
             }
         }
 
-        stage('Docker build') {
-            steps {
-                echo 'Build Docker image'
-                sh 'docker build -t order-service-ejsm:1.0 .'
-            }
-        }
-
-        stage('Docker Compose Restart') {
-            steps {
-                echo 'Restarting order services'
-                sh """
-                    docker compose up -d postgres-order-dev order-service-dev
-
-                """
-            }
-        }
 
     }
 
