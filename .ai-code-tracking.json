@@ -1793,12 +1793,265 @@
       "aiTool": "AI Assistant",
       "detectionMethod": "REALTIME_SPEED_ANALYSIS",
       "lineCount": 1
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487190441,
+      "startOffset": 1900,
+      "endOffset": 2549,
+      "codeContent": "when(orderRepository.findByIdWithItems(1L)).thenReturn(Optional.of(orderEntity));\n        when(userClient.getUserById(1L)).thenReturn(user);\n        when(orderMapper.toDomainWithUser(orderEntity, user)).thenReturn(orderDto);\n        when(orderItemMapper.toDomainWithProduct(any(OrderItemEntity.class), any(Product.class)))\n                .thenAnswer(invocation -\u003e new OrderItem()); // retorna item dummy\n\n        Order result \u003d orderService.findById(1L);\n\n        assertNotNull(result);\n        assertEquals(\"ORD-2025-001\", result.getOrderNumber());\n        assertEquals(\"PENDING\", result.getStatus());\n        assertEquals(user, result.getUser());",
+      "aiProbability": 95,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 12
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487191515,
+      "startOffset": 2622,
+      "endOffset": 2774,
+      "codeContent": "when(orderRepository.findByIdWithItems(2L)).thenReturn(Optional.empty());\n\n        Order result \u003d orderService.findById(2L);\n        assertNull(result);",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 4
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/main/java/com/orden/service/orden_service/service/OrderService.java",
+      "timestamp": 1764487594375,
+      "startOffset": 12,
+      "endOffset": 7160,
+      "codeContent": "tecsup.app.micro.order.service;\n\nimport com.tecsup.app.micro.order.client.Product;\nimport com.tecsup.app.micro.order.client.ProductClient;\nimport com.tecsup.app.micro.order.client.User;\nimport com.tecsup.app.micro.order.client.UserClient;\nimport com.tecsup.app.micro.order.dto.*;\nimport com.tecsup.app.micro.order.dto.ProductResponse;\nimport com.tecsup.app.micro.order.dto.UserResponse;\nimport com.tecsup.app.micro.order.entity.OrderEntity;\nimport com.tecsup.app.micro.order.entity.OrderItemEntity;\nimport com.tecsup.app.micro.order.repository.OrderItemRepository;\nimport com.tecsup.app.micro.order.repository.OrderRepository;\nimport lombok.AllArgsConstructor;\nimport lombok.extern.slf4j.Slf4j;\nimport org.springframework.stereotype.Service;\nimport org.springframework.transaction.annotation.Transactional;\n\nimport java.math.BigDecimal;\nimport java.math.RoundingMode;\nimport java.time.LocalDateTime;\nimport java.util.ArrayList;\nimport java.util.List;\nimport java.util.UUID;\nimport java.util.stream.Collectors;\n\n@Slf4j\n@Service\n@AllArgsConstructor\npublic class OrderService {\n\n    private final OrderRepository orderRepository;\n    private final OrderItemRepository orderItemRepository;\n    private final UserClient userClient;\n    private final ProductClient productClient;\n\n    @Transactional\n    public Order createOrder(CreateOrderRequest request) {\n        log.info(\"Creating order for user: {}\", request.getUserId());\n\n        // Validar usuario\n        User user \u003d userClient.getUserById(request.getUserId());\n        log.info(\"User validated: {}\", user);\n\n        // Calcular totales de los items\n        BigDecimal totalAmount \u003d BigDecimal.ZERO;\n        List\u003cOrderItem\u003e orderItems \u003d new ArrayList\u003c\u003e();\n\n        // Crear la orden\n        OrderEntity orderEntity \u003d new OrderEntity();\n        orderEntity.setUserId(request.getUserId());\n        orderEntity.setStatus(\"PENDING\");\n        orderEntity.setTotalAmount(totalAmount);\n        orderEntity.setCreatedAt(LocalDateTime.now());\n        orderEntity.setUpdatedAt(LocalDateTime.now());\n        orderEntity.setOrderNumber(\"TEMP-\" + UUID.randomUUID().toString()); // Valor temporal único\n\n        // Guardar para obtener el ID\n        orderEntity \u003d orderRepository.save(orderEntity);\n        log.info(\"Order saved with id: {}\", orderEntity.getId());\n\n        // Generar y actualizar con el número basado en el ID\n        orderEntity.setOrderNumber(generateOrderNumber(orderEntity.getId()));\n        orderEntity \u003d orderRepository.save(orderEntity);\n\n        // Crear los items de la orden\n        for (CreateOrderRequest.CreateOrderItemRequest itemRequest : request.getItems()) {\n            // Validar producto y obtener información\n            Product product \u003d productClient.getProductById(itemRequest.getProductId());\n            log.info(\"Product validated: {}\", product);\n\n            // Calcular subtotal\n            BigDecimal unitPrice \u003d product.getPrice();\n            BigDecimal subtotal \u003d unitPrice.multiply(BigDecimal.valueOf(itemRequest.getQuantity()))\n                    .setScale(2, RoundingMode.HALF_UP);\n            totalAmount \u003d totalAmount.add(subtotal);\n\n            // Crear entity\n            OrderItemEntity itemEntity \u003d new OrderItemEntity();\n            itemEntity.setOrderId(orderEntity.getId());\n            itemEntity.setProductId(itemRequest.getProductId());\n            itemEntity.setQuantity(itemRequest.getQuantity());\n            itemEntity.setUnitPrice(unitPrice);\n            itemEntity.setSubtotal(subtotal);\n\n            itemEntity \u003d orderItemRepository.save(itemEntity);\n            log.info(\"Order item saved with id: {}\", itemEntity.getId());\n\n            // Construir DTO\n            OrderItem orderItem \u003d new OrderItem();\n            orderItem.setId(itemEntity.getId());\n            ProductResponse productResponse \u003d new ProductResponse(product.getId(), product.getName(), product.getPrice());\n            orderItem.setProduct(productResponse);\n            orderItem.setQuantity(itemEntity.getQuantity());\n            orderItem.setUnitPrice(itemEntity.getUnitPrice());\n            orderItem.setSubtotal(itemEntity.getSubtotal());\n\n            orderItems.add(orderItem);\n        }\n\n        // Actualizar total de la orden\n        orderEntity.setTotalAmount(totalAmount);\n        orderRepository.save(orderEntity);\n\n        // Construir la respuesta\n        Order order \u003d new Order();\n        order.setId(orderEntity.getId());\n        order.setOrderNumber(orderEntity.getOrderNumber());\n        UserResponse userResponse \u003d new UserResponse(user.getId(), user.getName(), user.getEmail());\n        order.setUser(userResponse);\n        order.setItems(orderItems);\n        order.setTotalAmount(orderEntity.getTotalAmount());\n        order.setStatus(orderEntity.getStatus());\n        order.setCreatedAt(orderEntity.getCreatedAt());\n        order.setUpdatedAt(orderEntity.getUpdatedAt());\n\n        return order;\n    }\n\n    public Order getOrderById(Long id) {\n        log.info(\"Getting order by id: {}\", id);\n\n        OrderEntity orderEntity \u003d orderRepository.findById(id)\n                .orElseThrow(() -\u003e new RuntimeException(\"Order not found with id: \" + id));\n\n        // Obtener usuario\n        User user \u003d userClient.getUserById(orderEntity.getUserId());\n\n        // Obtener items\n        List\u003cOrderItem\u003e items \u003d getOrderItemsByOrderId(id);\n\n        // Construir la respuesta\n        Order order \u003d new Order();\n        order.setId(orderEntity.getId());\n        order.setOrderNumber(orderEntity.getOrderNumber());\n        UserResponse userResponse \u003d new UserResponse(user.getId(), user.getName(), user.getEmail());\n        order.setUser(userResponse);\n        order.setItems(items);\n        order.setTotalAmount(orderEntity.getTotalAmount());\n        order.setStatus(orderEntity.getStatus());\n        order.setCreatedAt(orderEntity.getCreatedAt());\n        order.setUpdatedAt(orderEntity.getUpdatedAt());\n\n        return order;\n    }\n\n    private String generateOrderNumber(Long orderId) {\n        return \"ORD-2025-\" + String.format(\"%04d\", orderId);\n    }\n\n    private List\u003cOrderItem\u003e getOrderItemsByOrderId(Long orderId) {\n        log.info(\"Getting order items for order id: {}\", orderId);\n\n        List\u003cOrderItemEntity\u003e itemEntities \u003d orderItemRepository.findAll()\n                .stream()\n                .filter(item -\u003e item.getOrderId().equals(orderId))\n                .toList();\n\n        return itemEntities.stream()\n                .map(entity -\u003e {\n                    Product product \u003d productClient.getProductById(entity.getProductId());\n                    ProductResponse productResponse \u003d new ProductResponse(product.getId(), product.getName(), product.getPrice());\n\n                    OrderItem orderItem \u003d new OrderItem();\n                    orderItem.setId(entity.getId());\n                    orderItem.setProduct(productResponse);\n                    orderItem.setQuantity(entity.getQuantity());\n                    orderItem.setUnitPrice(entity.getUnitPrice());\n                    orderItem.setSubtotal(entity.getSubtotal());\n\n                    return orderItem;\n                })\n                .collect(Collectors.toList()",
+      "aiProbability": 95,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 173
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487765732,
+      "startOffset": 1511,
+      "endOffset": 1554,
+      "codeContent": "org.springframework.boot.test.mock.mockito.",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 1
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487765757,
+      "startOffset": 1050,
+      "endOffset": 1109,
+      "codeContent": "import org.springframework.boot.test.mock.mockito.MockBean;",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 1
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487823017,
+      "startOffset": 926,
+      "endOffset": 4864,
+      "codeContent": "\nimport java.math.BigDecimal;\nimport java.time.LocalDateTime;\nimport java.util.*;\n\nimport static org.junit.jupiter.api.Assertions.*;\nimport static org.mockito.Mockito.*;\n\nclass OrderServiceTest {\n\n    @Mock\n    private UserClient userClient;\n\n    @Mock\n    private ProductClient productClient;\n\n    @Mock\n    private OrderRepository orderRepository;\n\n    @Mock\n    private OrderMapper orderMapper;\n\n    @Mock\n    private OrderItemMapper orderItemMapper;\n\n    @InjectMocks\n    private OrderService orderService;\n\n    private OrderEntity orderEntity;\n    private Order orderDto;\n    private User user;\n\n    @BeforeEach\n    void setUp() {\n        MockitoAnnotations.openMocks(this);\n\n        // Datos de ejemplo\n        user \u003d new User();\n        user.setId(1L);\n        user.setName(\"Juan\");\n\n        Product product \u003d new Product();\n        product.setId(1L);\n        product.setName(\"Producto1\");\n        product.setPrice(BigDecimal.valueOf(100));\n\n        OrderItemEntity itemEntity \u003d new OrderItemEntity();\n        itemEntity.setId(1L);\n        itemEntity.setProductId(product.getId());\n        itemEntity.setQuantity(2);\n        itemEntity.setPrice(product.getPrice());\n\n        orderEntity \u003d new OrderEntity();\n        orderEntity.setId(1L);\n        orderEntity.setUserId(user.getId());\n        orderEntity.setItems(Set.of(itemEntity));\n        orderEntity.setTotalPrice(BigDecimal.valueOf(200));\n        orderEntity.setCreatedAt(LocalDateTime.now());\n\n        OrderItem orderItemDto \u003d new OrderItem();\n        orderItemDto.setProductId(product.getId());\n        orderItemDto.setQuantity(2);\n        orderItemDto.setPrice(product.getPrice());\n\n        orderDto \u003d new Order();\n        orderDto.setId(1L);\n        orderDto.setUserId(user.getId());\n        orderDto.setItems(Set.of(orderItemDto));\n        orderDto.setTotalPrice(BigDecimal.valueOf(200));\n        orderDto.setCreatedAt(LocalDateTime.now());\n    }\n\n    @Test\n    void testFindById_OrderExists() {\n        when(orderRepository.findById(1L)).thenReturn(Optional.of(orderEntity));\n        when(orderMapper.toDto(orderEntity)).thenReturn(orderDto);\n\n        Order result \u003d orderService.findById(1L);\n\n        assertNotNull(result);\n        assertEquals(1L, result.getId());\n        assertEquals(1, result.getItems().size());\n        verify(orderRepository, times(1)).findById(1L);\n    }\n\n    @Test\n    void testFindById_OrderNotFound() {\n        when(orderRepository.findById(2L)).thenReturn(Optional.empty());\n\n        assertThrows(RuntimeException.class, () -\u003e orderService.findById(2L));\n        verify(orderRepository, times(1)).findById(2L);\n    }\n\n    @Test\n    void testRegisterOrder() {\n        CreateOrderRequest request \u003d new CreateOrderRequest();\n        request.setUserId(user.getId());\n\n        OrderItem orderItemDto \u003d new OrderItem();\n        orderItemDto.setProductId(1L);\n        orderItemDto.setQuantity(2);\n        request.setItems(Set.of(orderItemDto));\n\n        when(userClient.getUser(user.getId())).thenReturn(user);\n\n        Product product \u003d new Product();\n        product.setId(1L);\n        product.setName(\"Producto1\");\n        product.setPrice(BigDecimal.valueOf(100));\n        when(productClient.getProduct(1L)).thenReturn(product);\n\n        OrderItemEntity itemEntity \u003d new OrderItemEntity();\n        itemEntity.setProductId(product.getId());\n        itemEntity.setQuantity(2);\n        itemEntity.setPrice(product.getPrice());\n        when(orderItemMapper.toEntity(any(OrderItem.class))).thenReturn(itemEntity);\n\n        when(orderRepository.save(any(OrderEntity.class))).thenReturn(orderEntity);\n        when(orderMapper.toDto(any(OrderEntity.class))).thenReturn(orderDto);\n\n        Order result \u003d orderService.registerOrder(request);\n\n        assertNotNull(result);\n        assertEquals(user.getId(), result.getUserId());\n        assertEquals(1, result.getItems().size());\n        verify(orderRepository, times(1)).save(any(OrderEntity.class));",
+      "aiProbability": 70,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 126
+    },
+    {
+      "filePath": "/OrderServiceTest.java",
+      "timestamp": 1764487857250,
+      "startOffset": 3437,
+      "endOffset": 3492,
+      "codeContent": "com.orden.service.orden_service.dto.CreateOrderRequest.",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 1
+    },
+    {
+      "filePath": "/OrderServiceTest.java",
+      "timestamp": 1764487864030,
+      "startOffset": 3480,
+      "endOffset": 3535,
+      "codeContent": "com.orden.service.orden_service.dto.CreateOrderRequest.",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 1
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925517,
+      "startOffset": 4300,
+      "endOffset": 4372,
+      "codeContent": "        verify(orderRepository, times(1)).save(any(OrderEntity.class));\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925578,
+      "startOffset": 4249,
+      "endOffset": 4305,
+      "codeContent": "        assertEquals(user.getId(), result.getUserId());\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925644,
+      "startOffset": 3908,
+      "endOffset": 3957,
+      "codeContent": "        itemEntity.setPrice(product.getPrice());\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925710,
+      "startOffset": 3762,
+      "endOffset": 3826,
+      "codeContent": "        when(productClient.getProduct(1L)).thenReturn(product);\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925760,
+      "startOffset": 3604,
+      "endOffset": 3669,
+      "codeContent": "        when(userClient.getUser(user.getId())).thenReturn(user);\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925825,
+      "startOffset": 2523,
+      "endOffset": 2580,
+      "codeContent": "        orderDto.setTotalPrice(BigDecimal.valueOf(200));\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925886,
+      "startOffset": 2474,
+      "endOffset": 2516,
+      "codeContent": "        orderDto.setUserId(user.getId());\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487925946,
+      "startOffset": 2413,
+      "endOffset": 2464,
+      "codeContent": "        orderItemDto.setPrice(product.getPrice());\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926000,
+      "startOffset": 2050,
+      "endOffset": 2099,
+      "codeContent": "        itemEntity.setPrice(product.getPrice());\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926065,
+      "startOffset": 2267,
+      "endOffset": 2327,
+      "codeContent": "        orderEntity.setTotalPrice(BigDecimal.valueOf(200));\n",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 2
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926202,
+      "startOffset": 1570,
+      "endOffset": 1613,
+      "codeContent": "org.springframework.boot.test.mock.mockito.",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 1
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926523,
+      "startOffset": 1972,
+      "endOffset": 2124,
+      "codeContent": "when(orderRepository.findByIdWithItems(2L)).thenReturn(Optional.empty());\n\n        Order result \u003d orderService.findById(2L);\n        assertNull(result);",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 4
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926576,
+      "startOffset": 1899,
+      "endOffset": 2549,
+      "codeContent": " when(orderRepository.findByIdWithItems(1L)).thenReturn(Optional.of(orderEntity));\n        when(userClient.getUserById(1L)).thenReturn(user);\n        when(orderMapper.toDomainWithUser(orderEntity, user)).thenReturn(orderDto);\n        when(orderItemMapper.toDomainWithProduct(any(OrderItemEntity.class), any(Product.class)))\n                .thenAnswer(invocation -\u003e new OrderItem()); // retorna item dummy\n\n        Order result \u003d orderService.findById(1L);\n\n        assertNotNull(result);\n        assertEquals(\"ORD-2025-001\", result.getOrderNumber());\n        assertEquals(\"PENDING\", result.getStatus());\n        assertEquals(user, result.getUser());",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 12
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926638,
+      "startOffset": 2838,
+      "endOffset": 3642,
+      "codeContent": "// Crear request simulado\n        CreateOrderRequest.Item itemRequest \u003d new CreateOrderRequest.Item();\n        itemRequest.setProductId(100L); // debe coincidir con el mock\n        itemRequest.setQuantity(2);\n\n        CreateOrderRequest request \u003d new CreateOrderRequest();\n        request.setUserId(1L);\n        request.setItems(Set.of(itemRequest));\n\n        // -------------------------------\n        // Mocks necesarios\n        // -------------------------------\n\n        // Mock último pedido para nextOrderNumber\n        OrderEntity lastOrder \u003d new OrderEntity();\n        lastOrder.setOrderNumber(\"ORD-2025-000\");\n        when(orderRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(lastOrder));\n\n        // Mock product\n        Product product \u003d new Product();\n        product.setId(100L);",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 21
+    },
+    {
+      "filePath": "/home/esaldana/Projects/IntelliJ_Pruebas/BootCamp_Mod_06_Jenkis/Personal/m6-sbp-c05-micro-order-service/src/test/java/com/orden/service/orden_service/service/OrderServiceTest.java",
+      "timestamp": 1764487926699,
+      "startOffset": 3651,
+      "endOffset": 5158,
+      "codeContent": "product.setName(\"Product A\");\n        product.setPrice(BigDecimal.valueOf(50.0));\n        when(productClient.getProductById(100L)).thenReturn(product);\n\n        // Mock save\n        when(orderRepository.save(any(OrderEntity.class))).thenAnswer(invocation -\u003e {\n            OrderEntity saved \u003d invocation.getArgument(0);\n            saved.setId(1L);\n            return saved;\n        });\n\n        // Mock mapper y userClient\n        when(orderMapper.toDomain(any(OrderEntity.class))).thenAnswer(invocation -\u003e {\n            OrderEntity e \u003d invocation.getArgument(0);\n            Order o \u003d new Order();\n            o.setId(e.getId());\n            o.setOrderNumber(e.getOrderNumber());\n            o.setStatus(e.getStatus());\n            o.setTotalAmount(e.getTotalAmount().doubleValue());\n            o.setUser(user);\n            return o;\n        });\n        when(userClient.getUserById(1L)).thenReturn(user);\n        when(orderItemMapper.toDomainWithProduct(any(OrderItemEntity.class), any(Product.class)))\n                .thenAnswer(invocation -\u003e new OrderItem());\n\n        // -------------------------------\n        // Llamada al método que queremos testear\n        // -------------------------------\n        Order result \u003d orderService.registerOrder(request);\n\n        // -------------------------------\n        // Asserts\n        // -------------------------------\n        assertNotNull(result);\n        assertEquals(user, result.getUser());\n        assertEquals(\"ORD-2025-001\", result.getOrderNumber());",
+      "aiProbability": 90,
+      "aiTool": "AI Assistant",
+      "detectionMethod": "REALTIME_SPEED_ANALYSIS",
+      "lineCount": 37
     }
   ],
   "toolStats": {
     "AI Assistant": {
-      "usageCount": 163,
-      "totalLines": 3833
+      "usageCount": 186,
+      "totalLines": 4247
     }
   }
 }

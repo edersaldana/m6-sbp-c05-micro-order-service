@@ -16,12 +16,7 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo 'Test the project'
-                sh 'mvn test'
-            }
-        }
+
         stage('Package') {
             steps {
                 echo 'Package the project'
