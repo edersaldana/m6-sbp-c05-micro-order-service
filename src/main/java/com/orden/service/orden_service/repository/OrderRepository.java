@@ -17,4 +17,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     Optional<OrderEntity> findByIdWithItems(@Param("id") Long id);
 
     Optional<OrderEntity> findTopByOrderByIdDesc();
+
+    @Query("SELECT o FROM OrderEntity o LEFT JOIN FETCH o.items")
+    List<OrderEntity> findAllWithItems();
 }

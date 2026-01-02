@@ -14,10 +14,14 @@ public interface OrderItemMapper {
     OrderItem toDomain(OrderItemEntity entity);
     //OrderItemEntity toEntity(OrderItem domain);
 
-    default OrderItem toDomainWithProduct(OrderItemEntity entity, Product product) {
-        OrderItem orderItem = toDomain(entity);
-        orderItem.setProduct(product);
-        return orderItem;
+    public default OrderItem toDomainWithProduct(OrderItemEntity entity, Product product) {
+        return OrderItem.builder()
+                .productId(entity.getProductId())
+                .productName(product.getName())
+                .quantity(entity.getQuantity())
+                .unitPrice(entity.getUnitPrice())
+                .subtotal(entity.getSubtotal())
+                .build();
     }
 
     OrderItem toDto(OrderItemEntity entity);

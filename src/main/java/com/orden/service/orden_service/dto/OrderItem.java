@@ -7,17 +7,17 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonPropertyOrder({"productId", "quantity","unitPrice","subtotal"})
 @Builder
 public class OrderItem {
 
     private Long productId;
+    private String productName;
     private Integer quantity;
-    private Double unitPrice;
-    private Double subtotal;
-    private Product product;
-
+    private BigDecimal unitPrice;
+    private BigDecimal subtotal;
 }

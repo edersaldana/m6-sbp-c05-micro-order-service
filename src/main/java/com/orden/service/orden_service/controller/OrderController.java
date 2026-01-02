@@ -9,11 +9,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
 @Slf4j
-public class Odercontroller {
+public class OrderController {
 
     private final OrderService orderService;
 
@@ -30,5 +32,11 @@ public class Odercontroller {
     public ResponseEntity<Order> getOrderById(@PathVariable Long id) {
         log.info("Request  Get  order by  id :{}",id);
         return ResponseEntity.ok(orderService.findById(id));
+    }
+
+    @GetMapping
+    public ResponseEntity<List<Order>> getAllOrders() {
+        List<Order> orders = orderService.findAllOrders();
+        return ResponseEntity.ok(orders);
     }
 }

@@ -10,14 +10,13 @@ import java.math.BigDecimal;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
+@EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class OrderItemEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "order_id", insertable = false, updatable = false)
-    private Long orderId;
 
     @Column(name = "product_id", nullable = false)
     private Long productId;
@@ -32,8 +31,7 @@ public class OrderItemEntity {
     private BigDecimal subtotal;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "order_id")
+    @JoinColumn(name = "order_id", nullable = false)
     @ToString.Exclude
     private OrderEntity orderEntity;
-
 }

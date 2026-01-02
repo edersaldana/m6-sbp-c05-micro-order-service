@@ -2,6 +2,7 @@ package com.orden.service.orden_service.dto;
 
 import com.orden.service.orden_service.client.User;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
@@ -11,6 +12,7 @@ import java.util.Set;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Order {
     private Long id;
     private String orderNumber;

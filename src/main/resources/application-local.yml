@@ -18,7 +18,7 @@ spring:
           lob:
             non_contextual_creation: true
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     show-sql: true
 
   flyway:
@@ -26,3 +26,11 @@ spring:
     locations: classpath:db/migration/local
     baseline-on-migrate: true
     validate-on-migrate: true
+
+product:
+  service:
+    url: http://localhost:8082
+
+user:
+  service:
+    url: http://localhost:8081

@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -70,41 +71,72 @@ public class OrderService {
         return order;
     }
 
-    public Order registerOrder(CreateOrderRequest createOrderRequest) {
-        final OrderEntity orderEntity = new OrderEntity();
-        orderEntity.setUserId(createOrderRequest.getUserId());
+    @Transactional(readOnly = true)
+    public List<Order> findAllOrders() {
+        List<OrderEntity> entities = orderRepository.findAllWithItems();
+
+        return entities.stream().map(entity -> {
+            User user = userClient.getUserById(entity.getUserId());
+
+            Set<OrderItem> orderItems = entity.getItems().stream()
+                    .map(item -> {
+                        Product product = productClient.getProductById(item.getProductId());
+                        return orderItemMapper.toDomainWithProduct(item, product);
+                    })
+                    .collect(Collectors.toSet());
+
+            Order order = orderMapper.toDomainWithUser(entity, user);
+            order.setItems(orderItems);
+            return order;
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public Order registerOrder(CreateOrderRequest request) {
+
+        OrderEntity orderEntity = new OrderEntity();
+        orderEntity.setUserId(request.getUserId());
         orderEntity.setOrderNumber(nextOrderNumber());
         orderEntity.setStatus("PENDING");
-        BigDecimal total=BigDecimal.ZERO;
-        for(CreateOrderRequest.Item item  : createOrderRequest.getItems()){
-            final OrderItemEntity orderItemEntity = new OrderItemEntity();
+        orderEntity.setCreatedAt(LocalDateTime.now());
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (CreateOrderRequest.Item item : request.getItems()) {
+
             Product product = productClient.getProductById(item.getProductId());
 
-            orderItemEntity.setProductId(item.getProductId());
-            orderItemEntity.setQuantity(item.getQuantity());
-            orderItemEntity.setUnitPrice(product.getPrice());
+            OrderItemEntity orderItem = new OrderItemEntity();
+            orderItem.setProductId(product.getId());
+            orderItem.setQuantity(item.getQuantity());
+            orderItem.setUnitPrice(product.getPrice());
 
-            orderItemEntity.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            BigDecimal subtotal =
+                    product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
 
-            orderItemEntity.setOrderEntity(orderEntity);
+            orderItem.setSubtotal(subtotal);
+            orderItem.setOrderEntity(orderEntity);
 
-            orderEntity.getItems().add(orderItemEntity);
-            total=total.add(orderItemEntity.getSubtotal());
+            orderEntity.getItems().add(orderItem);
+            total = total.add(subtotal);
         }
 
         orderEntity.setTotalAmount(total);
-        OrderEntity orderSaved = orderRepository.save(orderEntity);
 
-        Set<OrderItem> orderItems=orderSaved.getItems().stream()
-                .map(item -> {Product product = productClient.getProductById(item.getProductId());
-                    return orderItemMapper.toDomainWithProduct(item, product);
-                })
+        OrderEntity saved = orderRepository.save(orderEntity);
+
+        // Mapear a DTO
+        User user = userClient.getUserById(saved.getUserId());
+
+        Set<OrderItem> items = saved.getItems().stream()
+                .map(i -> orderItemMapper.toDomainWithProduct(
+                        i, productClient.getProductById(i.getProductId())))
                 .collect(Collectors.toSet());
 
-        Order order = orderMapper.toDomain(orderSaved);
-        User user = (User) userClient.getUserById(createOrderRequest.getUserId());
+        Order order = orderMapper.toDomain(saved);
         order.setUser(user);
-        order.setItems(orderItems);
+        order.setItems(items);
+
         return order;
     }
 
