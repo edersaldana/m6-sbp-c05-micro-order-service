@@ -57,12 +57,12 @@ public class OrderService {
 
         //List<OrderItemEntity> items = orderItemRepository.findByOrderId(id);
         // Trabaja sobre una copia de la colección para evitar ConcurrentModificationException
-        Set<OrderItem> orderItems = entity.getItems().stream()
+        List<OrderItem> orderItems = entity.getItems().stream()
                 .map(item -> {
                     Product product = productClient.getProductById(item.getProductId());
                     return orderItemMapper.toDomainWithProduct(item, product);
                 })
-                .collect(Collectors.toSet());
+                .collect(Collectors.toList());
 
         // Mapea la orden con usuario
         Order order = orderMapper.toDomainWithUser(entity, user);
@@ -78,12 +78,12 @@ public class OrderService {
         return entities.stream().map(entity -> {
             User user = userClient.getUserById(entity.getUserId());
 
-            Set<OrderItem> orderItems = entity.getItems().stream()
+            List<OrderItem> orderItems = entity.getItems().stream()
                     .map(item -> {
                         Product product = productClient.getProductById(item.getProductId());
                         return orderItemMapper.toDomainWithProduct(item, product);
                     })
-                    .collect(Collectors.toSet());
+                    .collect(Collectors.toList());
 
             Order order = orderMapper.toDomainWithUser(entity, user);
             order.setItems(orderItems);
@@ -128,10 +128,14 @@ public class OrderService {
         // Mapear a DTO
         User user = userClient.getUserById(saved.getUserId());
 
-        Set<OrderItem> items = saved.getItems().stream()
-                .map(i -> orderItemMapper.toDomainWithProduct(
-                        i, productClient.getProductById(i.getProductId())))
-                .collect(Collectors.toSet());
+        List<OrderItem> items = saved.getItems().stream()
+                .map(i -> {
+                    Product product = productClient.getProductById(i.getProductId());
+                    OrderItem dto = orderItemMapper.toDomainWithProduct(i, product);
+                    dto.setImageUrl(product.getImageUrl());
+                    return dto;
+                })
+                .collect(Collectors.toList());
 
         Order order = orderMapper.toDomain(saved);
         order.setUser(user);

@@ -20,6 +20,7 @@ public interface OrderItemMapper {
                 .productName(product.getName())
                 .quantity(entity.getQuantity())
                 .unitPrice(entity.getUnitPrice())
+                .imageUrl(product.getImageUrl())
                 .subtotal(entity.getSubtotal())
                 .build();
     }
