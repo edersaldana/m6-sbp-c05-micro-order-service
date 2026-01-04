@@ -17,13 +17,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
@@ -33,37 +30,70 @@ import static org.mockito.Mockito.*;
 @SpringBootTest
 public class OrderServiceTest {
 
-    @MockitoBean
+    @Mock
     private UserClient userClient;
 
-    @MockitoBean
+    @Mock
     private ProductClient productClient;
 
-    @MockitoBean
+    @Mock
     private OrderRepository orderRepository;
 
-    @MockitoBean
+    @Mock
     private OrderMapper orderMapper;
 
-    @MockitoBean
+    @Mock
     private OrderItemMapper orderItemMapper;
 
-    @Autowired
+    @InjectMocks
     private OrderService orderService;
 
     private OrderEntity orderEntity;
-    private Order orderDto;
     private User user;
+
+    @BeforeEach
+    public void setup() {
+        MockitoAnnotations.openMocks(this);
+
+        // Crear usuario de prueba
+        user = new User();
+        user.setId(1L);
+        user.setName("Juan Pérez");
+        user.setEmail("juan.perez@example.com");
+
+        // Crear orden de prueba
+        orderEntity = new OrderEntity();
+        orderEntity.setId(1L);
+        orderEntity.setOrderNumber("ORD-2025-001");
+        orderEntity.setStatus("PENDING");
+        orderEntity.setUserId(1L);
+        orderEntity.setCreatedAt(LocalDateTime.now());
+
+        OrderItemEntity item = new OrderItemEntity();
+        item.setProductId(100L);
+        item.setQuantity(2);
+        item.setUnitPrice(BigDecimal.valueOf(50));
+        item.setSubtotal(BigDecimal.valueOf(100));
+        item.setOrderEntity(orderEntity);
+        orderEntity.setItems((java.util.List<OrderItemEntity>) Set.of(item));
+    }
 
     @Test
     public void testFindById_OrderExists() {
         when(orderRepository.findByIdWithItems(1L)).thenReturn(Optional.of(orderEntity));
         when(userClient.getUserById(1L)).thenReturn(user);
-        when(orderMapper.toDomainWithUser(orderEntity, user)).thenReturn(orderDto);
+        when(orderMapper.toDomainWithUser(orderEntity, user)).thenAnswer(invocation -> {
+            Order order = new Order();
+            order.setId(orderEntity.getId());
+            order.setOrderNumber(orderEntity.getOrderNumber());
+            order.setStatus(orderEntity.getStatus());
+            order.setUser(user);
+            return order;
+        });
         when(orderItemMapper.toDomainWithProduct(any(OrderItemEntity.class), any(Product.class)))
-                .thenAnswer(invocation -> new OrderItem()); // retorna item dummy
+                .thenAnswer(invocation -> new OrderItem());
 
-        Order result = orderService.findById(1L);
+        Order result = orderService.findById(1L); // <- ahora pasamos userId también
 
         assertNotNull(result);
         assertEquals("ORD-2025-001", result.getOrderNumber());
@@ -75,26 +105,21 @@ public class OrderServiceTest {
     public void testFindById_OrderNotFound() {
         when(orderRepository.findByIdWithItems(2L)).thenReturn(Optional.empty());
 
-        Order result = orderService.findById(2L);
+        Order result = orderService.findById(2L); // <- userId ficticio
         assertNull(result);
     }
 
     @Test
     public void testRegisterOrder() {
-        // Crear request simulado
         CreateOrderRequest.Item itemRequest = new CreateOrderRequest.Item();
-        itemRequest.setProductId(100L); // debe coincidir con el mock
+        itemRequest.setProductId(100L);
         itemRequest.setQuantity(2);
 
         CreateOrderRequest request = new CreateOrderRequest();
         request.setUserId(1L);
         request.setItems(Set.of(itemRequest));
 
-        // -------------------------------
-        // Mocks necesarios
-        // -------------------------------
-
-        // Mock último pedido para nextOrderNumber
+        // Mock último pedido
         OrderEntity lastOrder = new OrderEntity();
         lastOrder.setOrderNumber("ORD-2025-000");
         when(orderRepository.findTopByOrderByIdDesc()).thenReturn(Optional.of(lastOrder));
@@ -128,16 +153,11 @@ public class OrderServiceTest {
         when(orderItemMapper.toDomainWithProduct(any(OrderItemEntity.class), any(Product.class)))
                 .thenAnswer(invocation -> new OrderItem());
 
-        // -------------------------------
-        // Llamada al método que queremos testear
-        // -------------------------------
         Order result = orderService.registerOrder(request);
 
-        // -------------------------------
-        // Asserts
-        // -------------------------------
         assertNotNull(result);
         assertEquals(user, result.getUser());
         assertEquals("ORD-2025-001", result.getOrderNumber());
     }
 }
+

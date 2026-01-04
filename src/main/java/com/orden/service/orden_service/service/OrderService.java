@@ -30,111 +30,75 @@ import java.util.stream.Collectors;
 @Slf4j
 public class OrderService {
 
-    private  final UserClient userClient;
+    private final UserClient userClient;
     private final ProductClient productClient;
-
     private final OrderMapper orderMapper;
-    private final OrderRepository orderRepository;
     private final OrderItemMapper orderItemMapper;
-
-    private OrderItemRepository orderItemRepository;
-
+    private final OrderRepository orderRepository;
 
     @Transactional(readOnly = true)
     public Order findById(Long id) {
-        // Trae la entidad del repositorio
-        //OrderEntity entity = orderRepository.findById(id).orElse(null);
         OrderEntity entity = orderRepository.findByIdWithItems(id).orElse(null);
-        if (entity == null) {
-            return null;
-        }
+        if (entity == null) return null;
 
-        log.info("Orden encontrada: {}", entity.getOrderNumber());
-        log.info("Items de la orden (size={}): {}", entity.getItems().size(), entity.getItems());
-
-        // Trae el usuario
         User user = userClient.getUserById(entity.getUserId());
 
-        //List<OrderItemEntity> items = orderItemRepository.findByOrderId(id);
-        // Trabaja sobre una copia de la colección para evitar ConcurrentModificationException
         List<OrderItem> orderItems = entity.getItems().stream()
                 .map(item -> {
                     Product product = productClient.getProductById(item.getProductId());
                     return orderItemMapper.toDomainWithProduct(item, product);
-                })
-                .collect(Collectors.toList());
+                }).collect(Collectors.toList());
 
-        // Mapea la orden con usuario
         Order order = orderMapper.toDomainWithUser(entity, user);
         order.setItems(orderItems);
-
         return order;
     }
 
     @Transactional(readOnly = true)
     public List<Order> findAllOrders() {
         List<OrderEntity> entities = orderRepository.findAllWithItems();
-
         return entities.stream().map(entity -> {
             User user = userClient.getUserById(entity.getUserId());
-
-            List<OrderItem> orderItems = entity.getItems().stream()
-                    .map(item -> {
-                        Product product = productClient.getProductById(item.getProductId());
-                        return orderItemMapper.toDomainWithProduct(item, product);
-                    })
-                    .collect(Collectors.toList());
+            List<OrderItem> items = entity.getItems().stream()
+                    .map(i -> {
+                        Product product = productClient.getProductById(i.getProductId());
+                        return orderItemMapper.toDomainWithProduct(i, product);
+                    }).collect(Collectors.toList());
 
             Order order = orderMapper.toDomainWithUser(entity, user);
-            order.setItems(orderItems);
+            order.setItems(items);
             return order;
         }).collect(Collectors.toList());
     }
 
     @Transactional
     public Order registerOrder(CreateOrderRequest request) {
-
-        OrderEntity orderEntity = new OrderEntity();
-        orderEntity.setUserId(request.getUserId());
-        orderEntity.setOrderNumber(nextOrderNumber());
-        orderEntity.setStatus("PENDING");
-        orderEntity.setCreatedAt(LocalDateTime.now());
+        OrderEntity entity = new OrderEntity();
+        entity.setUserId(request.getUserId());
+        entity.setOrderNumber(nextOrderNumber());
+        entity.setStatus("PENDING");
+        entity.setCreatedAt(LocalDateTime.now());
 
         BigDecimal total = BigDecimal.ZERO;
-
         for (CreateOrderRequest.Item item : request.getItems()) {
-
             Product product = productClient.getProductById(item.getProductId());
-
             OrderItemEntity orderItem = new OrderItemEntity();
             orderItem.setProductId(product.getId());
             orderItem.setQuantity(item.getQuantity());
             orderItem.setUnitPrice(product.getPrice());
+            orderItem.setSubtotal(product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
+            orderItem.setOrderEntity(entity);
 
-            BigDecimal subtotal =
-                    product.getPrice().multiply(BigDecimal.valueOf(item.getQuantity()));
-
-            orderItem.setSubtotal(subtotal);
-            orderItem.setOrderEntity(orderEntity);
-
-            orderEntity.getItems().add(orderItem);
-            total = total.add(subtotal);
+            entity.getItems().add(orderItem);
+            total = total.add(orderItem.getSubtotal());
         }
 
-        orderEntity.setTotalAmount(total);
+        entity.setTotalAmount(total);
+        OrderEntity saved = orderRepository.save(entity);
 
-        OrderEntity saved = orderRepository.save(orderEntity);
-
-        // Mapear a DTO
         User user = userClient.getUserById(saved.getUserId());
-
         List<OrderItem> items = saved.getItems().stream()
-                .map(i -> {
-                    Product product = productClient.getProductById(i.getProductId());
-                    OrderItem dto = orderItemMapper.toDomainWithProduct(i, product);
-                    dto.setImageUrl(product.getImageUrl());
-                    return dto;
-                })
+                .map(i -> orderItemMapper.toDomainWithProduct(i, productClient.getProductById(i.getProductId())))
                 .collect(Collectors.toList());
 
         Order order = orderMapper.toDomain(saved);
@@ -147,16 +111,13 @@ public class OrderService {
     public String nextOrderNumber() {
         int numberId = 0;
         int year = LocalDate.now().getYear();
-        Optional<OrderEntity> lastOrderEntity = orderRepository.findTopByOrderByIdDesc();
-
-        if (lastOrderEntity.isPresent()) {
-            String lastOrderNumber = lastOrderEntity.get().getOrderNumber();
-            String[] parts = lastOrderNumber.split("-");
+        Optional<OrderEntity> last = orderRepository.findTopByOrderByIdDesc();
+        if (last.isPresent()) {
+            String[] parts = last.get().getOrderNumber().split("-");
             if (parts.length == 3 && parts[1].equals(String.valueOf(year))) {
                 numberId = Integer.parseInt(parts[2]) + 1;
             }
         }
-
         return String.format("ORD-%d-%03d", year, numberId);
     }
 }
