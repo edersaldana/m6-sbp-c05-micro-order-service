@@ -9,7 +9,7 @@ WORKDIR /app
 COPY target/*.jar /app/order-service.jar
 
 # Expose port 8083 for the Order Service
-EXPOSE 8083
+EXPOSE 8084
 
 # Define the command to run the Order Service
 CMD ["java", "-jar", "/app/order-service.jar"]

@@ -1,10 +1,20 @@
+server:
+  port: 8084
+
 spring:
+  application:
+    name: order-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/orderdb
+    url: jdbc:postgresql://postgres-order-dev:5432/orderdb
     username: postgres
     password: postgres
     driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: true
 
   flyway:
     enabled: true
@@ -12,4 +22,10 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
 
+product:
+  service:
+    url: http://product-service-dev:8082
 
+user:
+  service:
+    url: http://user-service-dev:8081
