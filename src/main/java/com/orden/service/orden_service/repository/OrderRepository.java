@@ -22,5 +22,5 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     List<OrderEntity> findAllWithItems();
 
     @Query("SELECT o FROM OrderEntity o LEFT JOIN FETCH o.items WHERE o.userId = :userId")
-    List<OrderEntity> findAllByUserIdWithItems(Long userId);
+    List<OrderEntity> findByUserIdWithItems(@Param("userId") Long userId);
 }

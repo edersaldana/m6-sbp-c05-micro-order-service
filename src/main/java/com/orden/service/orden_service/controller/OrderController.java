@@ -56,14 +56,11 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<?> getAllOrders(
-        @RequestHeader(value = "Authorization", required = false) String token) {
-        
-        if (token == null) {
-            return ResponseEntity.status(401).body("Falta el token de autorización");
-        }
-        
-        // Tu lógica para obtener órdenes...
-        return ResponseEntity.ok(orderService.findAllOrders());
+    public ResponseEntity<?> getAllOrders(@RequestHeader("Authorization") String token) {
+        // CORRECCIÓN 1: Usar jwtService (que ya tienes inyectado) en lugar de jwtUtils
+        Long userId = jwtService.extractUserId(token);
+
+        // CORRECCIÓN 2: Llamar al método del servicio que filtra por ID
+        return ResponseEntity.ok(orderService.findAllOrdersByUserId(userId));
     }
 }

@@ -71,6 +71,25 @@ public class OrderService {
         }).collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<Order> findAllOrdersByUserId(Long userId) {
+        // Asegúrate que este nombre coincida con el paso anterior en el Repository
+        List<OrderEntity> entities = orderRepository.findByUserIdWithItems(userId);
+
+        return entities.stream().map(entity -> {
+            User user = userClient.getUserById(entity.getUserId());
+            List<OrderItem> items = entity.getItems().stream()
+                    .map(i -> {
+                        Product product = productClient.getProductById(i.getProductId());
+                        return orderItemMapper.toDomainWithProduct(i, product);
+                    }).collect(Collectors.toList());
+
+            Order order = orderMapper.toDomainWithUser(entity, user);
+            order.setItems(items);
+            return order; // Correcto
+        }).collect(Collectors.toList());
+    }
+
     @Transactional
     public Order registerOrder(CreateOrderRequest request) {
         OrderEntity entity = new OrderEntity();
