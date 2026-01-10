@@ -63,4 +63,18 @@ public class OrderController {
         // CORRECCIÓN 2: Llamar al método del servicio que filtra por ID
         return ResponseEntity.ok(orderService.findAllOrdersByUserId(userId));
     }
+
+    @PatchMapping("/{id}/payment")
+    public ResponseEntity<Order> processPayment(
+            @RequestHeader("Authorization") String authHeader,
+            @PathVariable Long id
+    ) {
+        log.info("Procesando pago para la orden ID: {}", id);
+
+        // Opcional: Podrías validar que la orden pertenece al usuario del token
+        // Long userId = jwtService.extractUserId(authHeader);
+
+        Order updatedOrder = orderService.payment(id);
+        return ResponseEntity.ok(updatedOrder);
+    }
 }

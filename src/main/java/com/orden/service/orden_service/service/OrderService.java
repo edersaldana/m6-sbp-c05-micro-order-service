@@ -139,4 +139,33 @@ public class OrderService {
         }
         return String.format("ORD-%d-%03d", year, numberId);
     }
+
+    @Transactional
+    public Order payment(Long orderId) {
+
+        OrderEntity orderEntity = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+
+        // Solo permitir pagar si está pendiente
+        if (!"PENDING".equals(orderEntity.getStatus())) {
+            throw new IllegalStateException("Order cannot be paid");
+        }
+
+        // Simulación de pago exitoso
+        orderEntity.setStatus("CONFIRMED");
+        orderEntity.setUpdatedAt(LocalDateTime.now());
+
+        orderRepository.save(orderEntity);
+
+        // Obtener usuario (NO debe romper el flujo si falla)
+        User user = null;
+        try {
+            user = userClient.getUserById(orderEntity.getUserId());
+        } catch (Exception e) {
+            log.warn("User service not available, continuing payment");
+        }
+
+        return orderMapper.toDomainWithUser(orderEntity, user);
+    }
+
 }
